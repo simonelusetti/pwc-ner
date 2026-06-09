@@ -96,6 +96,6 @@ def load_examples(
 
     examples: list[ELExample] = []
     for split in splits:
-        for m in mentions_by_split.get(split, []):
+        for m in mentions_by_split[split]:
             examples.append(ELExample(mention=m, entity_dict=entities))
     return examples

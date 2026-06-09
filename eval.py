@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 import torch
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 
 import forge
 
@@ -18,52 +18,40 @@ from pipeline.run import load_examples, run_backend
 
 def _build_backend(name: str, cfg: DictConfig, device: str):
     if name == "biencoder":
-        checkpoint = OmegaConf.select(cfg, "checkpoint")
-        if not checkpoint:
-            raise ValueError("biencoder backend requires backends.biencoder.checkpoint=<path>")
         return BiEncoderBackend(
-            checkpoint_path=checkpoint,
-            model_name=str(cfg.get("model_name", "bert-base-uncased")),
+            checkpoint_path=cfg.checkpoint,
+            model_name=cfg.model_name,
             device=device,
-            batch_size=cfg["batch_size"],
-            max_mention_len=int(cfg.get("max_mention_len", 128)),
-            max_entity_len=int(cfg.get("max_entity_len", 128)),
-            retrieval_k=int(cfg.get("retrieval_k", 64)),
+            batch_size=int(cfg.batch_size),
+            max_mention_len=int(cfg.max_mention_len),
+            max_entity_len=int(cfg.max_entity_len),
+            retrieval_k=int(cfg.retrieval_k),
             tqdm_disabled=not sys.stderr.isatty(),
         )
 
     if name == "crossencoder":
-        bi_ckpt    = OmegaConf.select(cfg, "biencoder_checkpoint")
-        cross_ckpt = OmegaConf.select(cfg, "checkpoint")
-        if not bi_ckpt or not cross_ckpt:
-            raise ValueError(
-                "crossencoder backend requires both biencoder_checkpoint and checkpoint"
-            )
         return CrossEncoderBackend(
-            biencoder_checkpoint=bi_ckpt,
-            crossencoder_checkpoint=cross_ckpt,
-            model_name=str(cfg.get("model_name", "bert-base-uncased")),
+            biencoder_checkpoint=cfg.biencoder_checkpoint,
+            crossencoder_checkpoint=cfg.checkpoint,
+            model_name=cfg.model_name,
             device=device,
-            batch_size=int(cfg.get("batch_size", 32)),
-            max_mention_len=int(cfg.get("max_mention_len", 128)),
-            max_entity_len=int(cfg.get("max_entity_len", 128)),
-            max_cross_len=int(cfg.get("max_cross_len", 256)),
-            retrieval_k=int(cfg.get("retrieval_k", 64)),
+            batch_size=int(cfg.batch_size),
+            max_mention_len=int(cfg.max_mention_len),
+            max_entity_len=int(cfg.max_entity_len),
+            max_cross_len=int(cfg.max_cross_len),
+            retrieval_k=int(cfg.retrieval_k),
             tqdm_disabled=not sys.stderr.isatty(),
         )
 
     if name == "autoregressive":
-        checkpoint = OmegaConf.select(cfg, "checkpoint")
-        if not checkpoint:
-            raise ValueError("autoregressive backend requires backends.autoregressive.checkpoint=<path>")
         return AutoregressiveBackend(
-            checkpoint_path=checkpoint,
-            model_name=str(cfg.get("model_name", "facebook/bart-base")),
+            checkpoint_path=cfg.checkpoint,
+            model_name=cfg.model_name,
             device=device,
-            batch_size=int(cfg.get("batch_size", 8)),
-            max_input_len=int(cfg.get("max_input_len", 128)),
-            max_title_len=int(cfg.get("max_title_len", 32)),
-            num_beams=int(cfg.get("num_beams", 5)),
+            batch_size=int(cfg.batch_size),
+            max_input_len=int(cfg.max_input_len),
+            max_title_len=int(cfg.max_title_len),
+            num_beams=int(cfg.num_beams),
             tqdm_disabled=not sys.stderr.isatty(),
         )
 
@@ -71,7 +59,7 @@ def _build_backend(name: str, cfg: DictConfig, device: str):
 
 
 def main(cfg: DictConfig) -> None:
-    device = cfg.get("device", "cpu")
+    device = cfg.device
     if device == "cuda" and not torch.cuda.is_available():
         device = "cpu"
         print("CUDA not available — falling back to CPU.", file=sys.stderr)
@@ -79,17 +67,15 @@ def main(cfg: DictConfig) -> None:
     run = forge.start_run(cfg)
 
     data_dir = Path(cfg.data_dir)
-    dataset  = str(cfg.get("dataset", "zeshel"))
-    splits   = list(cfg.get("splits", ["testa", "testb"]))
-    subset   = cfg.get("subset", None)
+    splits   = list(cfg.splits)
 
-    examples = load_examples(data_dir, dataset=dataset, splits=splits, subset=subset)
-    print(f"Loaded {len(examples)} examples (dataset={dataset!r}, splits={splits})", file=sys.stderr)
+    examples = load_examples(data_dir, dataset=cfg.dataset, splits=splits, subset=cfg.subset)
+    print(f"Loaded {len(examples)} examples (dataset={cfg.dataset!r}, splits={splits})", file=sys.stderr)
 
     all_metrics: dict[str, dict] = {}
 
     for backend_name, backend_cfg in cfg.backends.items():
-        if not backend_cfg.get("enabled", True):
+        if not backend_cfg.enabled:
             print(f"Skipping {backend_name} (disabled)", file=sys.stderr)
             continue
 

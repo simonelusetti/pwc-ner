@@ -41,16 +41,14 @@ def _to_device(device: str, batch: dict) -> dict:
 
 def _load_data(cfg: DictConfig):
     data_dir = Path(cfg.data.data_dir)
-    dataset  = str(cfg.data.get("dataset", "zeshel"))
-    splits   = list(cfg.data.get("splits", ["train", "valid"]))
-    subset       = cfg.data.get("subset", None)
-    full_entities = bool(cfg.data.get("full_entities", True))
+    splits   = list(cfg.data.splits)
+    subset   = cfg.data.subset
 
-    if dataset == "zeshel":
-        return load_zeshel(data_dir, splits, subset=subset, full_entities=full_entities)
-    if dataset == "tackbp":
+    if cfg.data.dataset == "zeshel":
+        return load_zeshel(data_dir, splits, subset=subset, full_entities=cfg.data.full_entities)
+    if cfg.data.dataset == "tackbp":
         return load_tackbp(data_dir, splits, subset=subset)
-    raise ValueError(f"Unknown dataset: {dataset!r}")
+    raise ValueError(f"Unknown dataset: {cfg.data.dataset!r}")
 
 
 # ---------------------------------------------------------------------------
@@ -67,22 +65,25 @@ def _build_entity_index(
     device: str,
     tqdm_disabled: bool,
 ) -> EntityIndex:
-    all_embs: list[torch.Tensor] = []
-    all_ids: list[str] = []
-
     ent_list = list(entities.values())
     dl = build_entity_loader(ent_list, tokenizer, max_entity_len, batch_size, device=device)
+
+    embeddings = torch.empty(len(ent_list), model.hidden_size)
+    all_ids: list[str] = []
+    offset = 0
 
     for batch in tqdm(dl, desc="Building entity index", disable=tqdm_disabled, file=sys.stderr):
         emb = model.encode_entities(
             batch["input_ids"].to(device),
             batch["attention_mask"].to(device),
-        )
-        all_embs.append(emb.cpu())
+        ).cpu()
+        b = emb.size(0)
+        embeddings[offset:offset + b] = emb
+        offset += b
         all_ids.extend(batch["entity_ids"])
 
     index = EntityIndex()
-    index.build(all_ids, torch.cat(all_embs, dim=0))
+    index.build(all_ids, embeddings)
     return index
 
 
@@ -125,15 +126,13 @@ def evaluate_biencoder(
 
 def train_biencoder(cfg: DictConfig, run: forge.ExperimentRun) -> None:
     device = cfg.runtime.device
-    tqdm_disabled = not sys.stderr.isatty() or bool(cfg.runtime.get("tqdm_disabled", False))
+    tqdm_disabled = not sys.stderr.isatty() or cfg.runtime.tqdm_disabled
 
     entities, mentions_by_split = _load_data(cfg)
-    train_split = str(cfg.data.get("train_split", "train"))
-    eval_split  = str(cfg.data.get("eval_split",  "valid"))
-    mentions_train = mentions_by_split.get(train_split, [])
-    mentions_eval  = mentions_by_split.get(eval_split,  [])
+    mentions_train = mentions_by_split[cfg.data.train_split]
+    mentions_eval  = mentions_by_split[cfg.data.eval_split]
 
-    model_name = str(cfg.model.get("backbone", "bert-base-uncased"))
+    model_name = cfg.model.backbone
     tokenizer  = build_tokenizer(model_name)
     model = BiEncoder(model_name).to(device)
 
@@ -141,7 +140,7 @@ def train_biencoder(cfg: DictConfig, run: forge.ExperimentRun) -> None:
         mentions_train, mentions_eval, entities, tokenizer,
         cfg.data, cfg.runtime.data, device=device,
     )
-    max_entity_len = int(cfg.data.get("max_entity_len", 128))
+    max_entity_len = int(cfg.data.max_entity_len)
 
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -200,7 +199,7 @@ def train_biencoder(cfg: DictConfig, run: forge.ExperimentRun) -> None:
         ckpt = ckpt_dir / f"model_epoch{epoch}.pth"
         torch.save({"model": model.state_dict(), "optimizer": optimizer.state_dict(), "epoch": epoch}, ckpt)
 
-        recall_64 = eval_metrics.get("recall_at_64", 0.0)
+        recall_64 = eval_metrics["recall_at_64"]
         if recall_64 >= best_recall:
             best_recall = recall_64
             torch.save({"model": model.state_dict(), "epoch": epoch}, ckpt_dir / "model_best.pth")
@@ -221,15 +220,13 @@ def train_biencoder(cfg: DictConfig, run: forge.ExperimentRun) -> None:
 
 def train_autoregressive(cfg: DictConfig, run: forge.ExperimentRun) -> None:
     device = cfg.runtime.device
-    tqdm_disabled = not sys.stderr.isatty() or bool(cfg.runtime.get("tqdm_disabled", False))
+    tqdm_disabled = not sys.stderr.isatty() or cfg.runtime.tqdm_disabled
 
     entities, mentions_by_split = _load_data(cfg)
-    train_split = str(cfg.data.get("train_split", "train"))
-    eval_split  = str(cfg.data.get("eval_split",  "valid"))
-    mentions_train = mentions_by_split.get(train_split, [])
-    mentions_eval  = mentions_by_split.get(eval_split,  [])
+    mentions_train = mentions_by_split[cfg.data.train_split]
+    mentions_eval  = mentions_by_split[cfg.data.eval_split]
 
-    model_name = str(cfg.model.get("backbone", "facebook/bart-base"))
+    model_name = cfg.model.backbone
     from transformers import BartTokenizer
     tokenizer = BartTokenizer.from_pretrained(model_name)
 
@@ -313,7 +310,7 @@ def main(cfg: DictConfig) -> None:
 
     run = forge.start_run(cfg)
 
-    arch = str(cfg.model.get("arch", "biencoder"))
+    arch = cfg.model.arch
     if arch == "biencoder":
         train_biencoder(cfg, run)
     elif arch == "autoregressive":

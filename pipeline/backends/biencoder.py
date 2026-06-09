@@ -108,25 +108,27 @@ class BiEncoderBackend:
                 return cached_index
 
         entities = list(entity_dict.values())
-        ds = EntityDataset(entities, self.tokenizer, self.max_entity_len)
-        dl = DataLoader(ds, batch_size=self.batch_size, shuffle=False, collate_fn=collate_entities)
-
-        all_embs: list[torch.Tensor] = []
-        all_ids: list[str] = []
-        for batch in tqdm(dl, desc="Encoding entities", disable=self.tqdm_disabled, file=sys.stderr):
-            emb = self.model.encode_entities(
-                batch["input_ids"].to(self.device),
-                batch["attention_mask"].to(self.device),
-            )
-            all_embs.append(emb.cpu())
-            all_ids.extend(batch["entity_ids"])
-
-        if not all_embs:
+        if not entities:
             index = EntityIndex()
             index.build([], torch.empty((0, self.model.hidden_size)))
             return index
 
-        embeddings = torch.cat(all_embs, dim=0)
+        ds = EntityDataset(entities, self.tokenizer, self.max_entity_len)
+        dl = DataLoader(ds, batch_size=self.batch_size, shuffle=False, collate_fn=collate_entities)
+
+        embeddings = torch.empty(len(entities), self.model.hidden_size)
+        all_ids: list[str] = []
+        offset = 0
+        for batch in tqdm(dl, desc="Encoding entities", disable=self.tqdm_disabled, file=sys.stderr):
+            emb = self.model.encode_entities(
+                batch["input_ids"].to(self.device),
+                batch["attention_mask"].to(self.device),
+            ).cpu()
+            b = emb.size(0)
+            embeddings[offset:offset + b] = emb
+            offset += b
+            all_ids.extend(batch["entity_ids"])
+
         index = EntityIndex()
         index.build(all_ids, embeddings)
 
