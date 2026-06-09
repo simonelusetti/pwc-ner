@@ -1,0 +1,43 @@
+# Pipeline comparison config
+# Run with: forge -M eval --config-name eval run  (from project root)
+
+forge:
+  store: null
+  tags: []
+  verbose: true
+
+data_dir: /home/simonelusetti/pwc/data/zeshel
+dataset: zeshel             # zeshel | tackbp
+splits: [test]
+subset: null                # if set, cap mentions per split (e.g. 256 for smoke runs)
+device: cpu
+
+backends:
+  biencoder:
+    enabled: true
+    checkpoint: /home/simonelusetti/pwc/models/biencoder_best.pth
+    model_name: bert-base-uncased
+    batch_size: 32
+    max_mention_len: 128
+    max_entity_len: 128
+    retrieval_k: 64
+
+  crossencoder:
+    enabled: false          # set true once crossencoder_best.pth is trained
+    biencoder_checkpoint: /home/simonelusetti/pwc/models/biencoder_best.pth
+    checkpoint: /home/simonelusetti/pwc/models/crossencoder_best.pth
+    model_name: bert-base-uncased
+    batch_size: 16
+    max_mention_len: 128
+    max_entity_len: 128
+    max_cross_len: 256
+    retrieval_k: 64
+
+  autoregressive:
+    enabled: false          # set true once autoregressive_best.pth is trained
+    checkpoint: /home/simonelusetti/pwc/models/autoregressive_best.pth
+    model_name: facebook/bart-base
+    batch_size: 8
+    max_input_len: 128
+    max_title_len: 32
+    num_beams: 5

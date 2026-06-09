@@ -1,0 +1,15 @@
+__pycache__/
+**/__pycache__/
+**/__pycache__/**
+
+.venv/
+.claude
+
+data/*
+!data/.gitkeep
+
+outputs/*
+!outputs/.gitkeep
+
+models/*
+!models/.gitkeep

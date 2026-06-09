@@ -1,0 +1,47 @@
+# Bi-encoder training config
+# Run with: forge run  (from project root)
+# Override example: forge run model.optim.lr=1e-4 runtime.device=cuda
+
+forge:
+  store: null
+  tags: []
+  verbose: true
+  exclude:
+    - runtime.device
+    - runtime.bf16
+    - runtime.tqdm_disabled
+    - runtime.data.batch_size
+    - runtime.data.num_workers
+
+data:
+  data_dir: /home/simonelusetti/pwc/data/zeshel
+  dataset: zeshel           # zeshel | tackbp
+  splits: [train, val]
+  train_split: train
+  eval_split: val
+  max_mention_len: -1      # max tokens for mention-in-context
+  max_entity_len: -1       # max tokens for entity title + description
+  subset: null              # if set, cap mentions per split (e.g. 0.1 for 10%, 256 for absolute)
+  full_entities: true       # always keep the full entity index so eval metrics are meaningful
+
+model:
+  arch: biencoder           # biencoder | autoregressive
+  backbone: bert-base-uncased
+  optim:
+    lr: 2.0e-5
+    weight_decay: 1.0e-2
+    betas: [0.9, 0.999]
+
+train:
+  epochs: 10
+  warmup_epochs: 2          # epochs before hard-negative mining begins
+
+deploy_path: /home/simonelusetti/pwc/models/biencoder_best.pth
+
+runtime:
+  device: cpu
+  bf16: false
+  tqdm_disabled: false
+  data:
+    batch_size: 16
+    num_workers: 0

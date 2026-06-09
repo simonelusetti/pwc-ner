@@ -1,0 +1,14 @@
+# Sweep all training architectures.
+# Run with: forge grid conf/grid.yaml
+# Smoke run:  forge grid conf/grid.yaml data.subset=0.01
+
+globals: ["data.subset=0.1"]
+
+direct:
+  - - model.arch=biencoder
+    - model.backbone=bert-base-uncased
+    - deploy_path=/home/simonelusetti/pwc/models/biencoder_best.pth
+
+  - - model.arch=autoregressive
+    - model.backbone=facebook/bart-base
+    - deploy_path=/home/simonelusetti/pwc/models/autoregressive_best.pth
