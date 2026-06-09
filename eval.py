@@ -25,7 +25,7 @@ def _build_backend(name: str, cfg: DictConfig, device: str):
             checkpoint_path=checkpoint,
             model_name=str(cfg.get("model_name", "bert-base-uncased")),
             device=device,
-            batch_size=int(cfg.get("batch_size", 32)),
+            batch_size=cfg["batch_size"],
             max_mention_len=int(cfg.get("max_mention_len", 128)),
             max_entity_len=int(cfg.get("max_entity_len", 128)),
             retrieval_k=int(cfg.get("retrieval_k", 64)),

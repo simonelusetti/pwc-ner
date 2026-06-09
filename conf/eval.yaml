@@ -17,9 +17,9 @@ backends:
     enabled: true
     checkpoint: /home/simonelusetti/pwc/models/biencoder_best.pth
     model_name: bert-base-uncased
-    batch_size: 32
-    max_mention_len: 128
-    max_entity_len: 128
+    batch_size: 8
+    max_mention_len: -1
+    max_entity_len: -1
     retrieval_k: 64
 
   crossencoder:
@@ -27,10 +27,10 @@ backends:
     biencoder_checkpoint: /home/simonelusetti/pwc/models/biencoder_best.pth
     checkpoint: /home/simonelusetti/pwc/models/crossencoder_best.pth
     model_name: bert-base-uncased
-    batch_size: 16
-    max_mention_len: 128
-    max_entity_len: 128
-    max_cross_len: 256
+    batch_size: 8
+    max_mention_len: -1
+    max_entity_len: -1
+    max_cross_len: -1
     retrieval_k: 64
 
   autoregressive:
@@ -38,6 +38,6 @@ backends:
     checkpoint: /home/simonelusetti/pwc/models/autoregressive_best.pth
     model_name: facebook/bart-base
     batch_size: 8
-    max_input_len: 128
-    max_title_len: 32
+    max_input_len: -1
+    max_title_len: -1
     num_beams: 5
