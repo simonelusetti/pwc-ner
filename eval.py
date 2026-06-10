@@ -16,6 +16,25 @@ from pipeline.backends.crossencoder import CrossEncoderBackend
 from pipeline.run import load_examples, run_backend
 
 
+def _is_local_path(path: str) -> bool:
+    """Return True if path looks like a local file path rather than a HuggingFace model ID."""
+    p = Path(path)
+    return p.is_absolute() or path.startswith(("./", "../")) or p.suffix != ""
+
+
+def _missing_checkpoints(name: str, cfg: DictConfig) -> list[Path]:
+    """Return local checkpoint paths that are required but do not exist on disk."""
+    if name == "biencoder":
+        paths = [cfg.checkpoint]
+    elif name == "crossencoder":
+        paths = [cfg.biencoder_checkpoint, cfg.checkpoint]
+    elif name == "autoregressive":
+        paths = [cfg.checkpoint]
+    else:
+        paths = []
+    return [Path(p) for p in paths if _is_local_path(p) and not Path(p).exists()]
+
+
 def _build_backend(name: str, cfg: DictConfig, device: str):
     if name == "biencoder":
         return BiEncoderBackend(
@@ -77,6 +96,11 @@ def main(cfg: DictConfig) -> None:
     for backend_name, backend_cfg in cfg.backends.items():
         if not backend_cfg.enabled:
             print(f"Skipping {backend_name} (disabled)", file=sys.stderr)
+            continue
+
+        missing = _missing_checkpoints(backend_name, backend_cfg)
+        if missing:
+            print(f"Skipping {backend_name} — checkpoint(s) not found: {', '.join(str(p) for p in missing)}", file=sys.stderr)
             continue
 
         print(f"Running backend: {backend_name}", file=sys.stderr)

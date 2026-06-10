@@ -66,7 +66,7 @@ class AutoregressiveEL(nn.Module):
         trie: PrefixTrie,
         eos_token_id: int | None = None,
         num_beams: int = 5,
-        max_length: int = 32,
+        max_new_tokens: int | None = None,
     ) -> torch.Tensor:
         """Generate entity titles constrained by the prefix trie."""
         eos = eos_token_id or self.bart.config.eos_token_id
@@ -76,11 +76,15 @@ class AutoregressiveEL(nn.Module):
             allowed = trie.allowed_next(prefix)
             return allowed if allowed else [eos]
 
+        kwargs: dict = {}
+        if max_new_tokens is not None:
+            kwargs["max_new_tokens"] = max_new_tokens
+
         return self.bart.generate(
             input_ids=input_ids,
             attention_mask=attention_mask,
             num_beams=num_beams,
-            max_length=max_length,
             prefix_allowed_tokens_fn=_prefix_allowed,
             early_stopping=True,
+            **kwargs,
         )

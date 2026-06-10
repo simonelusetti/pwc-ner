@@ -15,28 +15,28 @@ device: cpu
 backends:
   biencoder:
     enabled: true
-    checkpoint: /home/simonelusetti/pwc/models/biencoder_best.pth
-    model_name: bert-base-uncased
+    checkpoint: /home/simonelusetti/pwc/models/biencoder_blink.pth  # run scripts/convert_blink.py
+    model_name: bert-large-uncased
     batch_size: 8
-    max_mention_len: -1
-    max_entity_len: -1
+    max_mention_len: 128
+    max_entity_len: 128
     retrieval_k: 64
 
   crossencoder:
-    enabled: false          # set true once crossencoder_best.pth is trained
-    biencoder_checkpoint: /home/simonelusetti/pwc/models/biencoder_best.pth
-    checkpoint: /home/simonelusetti/pwc/models/crossencoder_best.pth
-    model_name: bert-base-uncased
+    enabled: true
+    biencoder_checkpoint: /home/simonelusetti/pwc/models/biencoder_blink.pth
+    checkpoint: /home/simonelusetti/pwc/models/crossencoder_blink.pth  # run scripts/convert_blink.py
+    model_name: bert-large-uncased
     batch_size: 8
-    max_mention_len: -1
-    max_entity_len: -1
-    max_cross_len: -1
+    max_mention_len: 128
+    max_entity_len: 128
+    max_cross_len: 256
     retrieval_k: 64
 
   autoregressive:
-    enabled: false          # set true once autoregressive_best.pth is trained
-    checkpoint: /home/simonelusetti/pwc/models/autoregressive_best.pth
-    model_name: facebook/bart-base
+    enabled: true
+    checkpoint: facebook/genre-linking-blink  # loaded directly from HuggingFace
+    model_name: facebook/bart-large           # informational only; ignored when checkpoint is a HF ID
     batch_size: 8
     max_input_len: -1
     max_title_len: -1

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 
 import torch
 from torch.utils.data import DataLoader
@@ -40,11 +41,17 @@ class AutoregressiveBackend:
         self.num_beams = num_beams
         self.tqdm_disabled = tqdm_disabled
 
-        self.tokenizer: BartTokenizer = BartTokenizer.from_pretrained(model_name)
-        self.model = AutoregressiveEL(model_name).to(device)
+        if Path(checkpoint_path).exists():
+            # Local .pth: {"model": state_dict} produced by train.py
+            self.tokenizer = BartTokenizer.from_pretrained(model_name)
+            self.model = AutoregressiveEL(model_name).to(device)
+            ckpt = torch.load(checkpoint_path, map_location=device)
+            self.model.load_state_dict(ckpt["model"])
+        else:
+            # HuggingFace model ID (e.g. "facebook/genre-linking-blink")
+            self.tokenizer = BartTokenizer.from_pretrained(checkpoint_path)
+            self.model = AutoregressiveEL(checkpoint_path).to(device)
 
-        ckpt = torch.load(checkpoint_path, map_location=device)
-        self.model.load_state_dict(ckpt["model"])
         self.model.eval()
 
     def _build_trie(self, entity_dict: dict[str, Entity]) -> tuple[PrefixTrie, dict[str, str]]:
@@ -77,7 +84,7 @@ class AutoregressiveBackend:
                 attention_mask=batch["attention_mask"].to(self.device),
                 trie=trie,
                 num_beams=self.num_beams,
-                max_length=self.max_title_len + 2,
+                max_new_tokens=self.max_title_len if self.max_title_len > 0 else None,
             )
             for seq in outputs:
                 title = self.tokenizer.decode(seq, skip_special_tokens=True)

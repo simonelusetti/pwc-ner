@@ -54,7 +54,8 @@ class CrossEncoderBackend:
 
         self.reranker = CrossEncoder(model_name).to(device)
         ckpt = torch.load(crossencoder_checkpoint, map_location=device)
-        self.reranker.load_state_dict(ckpt["model"])
+        # strict=False: BLINK-converted checkpoints omit the scorer head (random init is fine)
+        self.reranker.load_state_dict(ckpt["model"], strict=False)
         self.reranker.eval()
 
     @torch.no_grad()
